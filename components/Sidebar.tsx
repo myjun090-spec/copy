@@ -75,7 +75,7 @@ export default function Sidebar() {
               padding: '8px 12px', borderRadius: '8px', fontSize: '14px', fontWeight: 500
             }}
           >
-            <Plus size={18} /> Add Category
+            <Plus size={18} /> Add Link
           </button>
         </div>
       </nav>

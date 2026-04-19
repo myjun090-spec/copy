@@ -13,14 +13,41 @@ export default function Home() {
 
   // Create a listener for paste event or globally capturing cmd+v
   useEffect(() => {
+    let lastCheckedClipboard = sessionStorage.getItem('lastPasted') || '';
+
     const handlePaste = (e: ClipboardEvent) => {
       const text = e.clipboardData?.getData('text');
       if (text) {
+        lastCheckedClipboard = text;
+        sessionStorage.setItem('lastPasted', text);
         openAddModal(text);
       }
     };
+
+    const handleFocus = async () => {
+      try {
+        const text = await navigator.clipboard.readText();
+        // Automatically popup if it's a URL and we haven't already prompted for it
+        if (text && text !== lastCheckedClipboard && (text.startsWith('http') || text.startsWith('www'))) {
+          lastCheckedClipboard = text;
+          sessionStorage.setItem('lastPasted', text);
+          openAddModal(text);
+        }
+      } catch (err) {
+        // Permission denied or Safari blocking auto-read
+      }
+    };
+
     window.addEventListener('paste', handlePaste);
-    return () => window.removeEventListener('paste', handlePaste);
+    window.addEventListener('focus', handleFocus);
+    
+    // Check when component mounts initially
+    handleFocus();
+
+    return () => {
+      window.removeEventListener('paste', handlePaste);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [openAddModal]);
 
   const filteredLinks = links.filter(link => {
