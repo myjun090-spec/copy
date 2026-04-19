@@ -7,6 +7,7 @@ import AddLinkModal from '@/components/AddLinkModal';
 import RoadmapModal from '@/components/RoadmapModal';
 import RepoExplorerModal from '@/components/RepoExplorerModal';
 import RepoDevelopModal from '@/components/RepoDevelopModal';
+import RepoInsights from '@/components/RepoInsights';
 import LinkCard from '@/components/LinkCard';
 import { useAppContext, StashedLink } from '@/contexts/AppContext';
 import { Plus, X, Trash2, Tag as TagIcon, Clock } from 'lucide-react';
@@ -156,6 +157,9 @@ export default function Home() {
             </button>
           </div>
         </section>
+
+        {/* Per-repo recommendation cards */}
+        <RepoInsights />
 
         {/* Category pills */}
         <section style={{ marginBottom: 20 }}>

@@ -2,8 +2,7 @@
 
 import React, { useRef, useState } from 'react';
 import { useAppContext } from '@/contexts/AppContext';
-import { Search, Hash, Plus, Settings, FolderOpen, Download, Command, MessageSquare, Sparkles, GitBranch } from 'lucide-react';
-import Link from 'next/link';
+import { Hash, Plus, Settings, FolderOpen, Download, Command, MessageSquare, GitBranch } from 'lucide-react';
 import { classifyLink, buildAutoDescription, buildAutoTitle } from '@/lib/classifier';
 import { mapWithConcurrency } from '@/lib/batch';
 
@@ -15,7 +14,7 @@ interface ImportProgress {
 export default function Sidebar() {
   const {
     categories, activeCategory, setActiveCategory, exportCSV, openAddModal, addMultipleLinks,
-    githubRepos, githubToken, addLink, openRepoExplorer, openRoadmap, openRepoDevelop
+    githubRepos, githubToken, addLink, openRepoExplorer, openRepoDevelop
   } = useAppContext();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importProgress, setImportProgress] = useState<ImportProgress | null>(null);
@@ -234,14 +233,7 @@ export default function Sidebar() {
           <Download size={18} /> Export (CSV)
         </button>
         
-        <button 
-          onClick={openRoadmap}
-          style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 12px', color: 'var(--accent-cyan)', fontSize: '14px', fontWeight: 600 }}
-        >
-          <Sparkles size={18} /> Future Roadmap 🚀
-        </button>
-
-        <button 
+        <button
           style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 12px', color: 'var(--text-secondary)', fontSize: '14px' }}
         >
           <Settings size={18} /> Settings
