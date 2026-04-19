@@ -5,7 +5,9 @@ import { useAppContext, setGithubTokenGlobal } from '@/contexts/AppContext';
 import { GithubAuthProvider } from 'firebase/auth';
 
 export default function AuthOverlay() {
-  const { user, isAuthLoading } = useAppContext();
+  const { user, isAuthLoading, storageMode, enableLocalMode } = useAppContext();
+
+  if (storageMode === 'local') return null;
 
   if (isAuthLoading) {
     return (
@@ -84,15 +86,33 @@ export default function AuthOverlay() {
           <div style={{ flex: 1, height: '1px', backgroundColor: 'var(--border-color)' }} />
         </div>
 
-        <button 
-          onClick={handleAnon}
+        <button
+          onClick={enableLocalMode}
           style={{
-            width: '100%', padding: '14px', borderRadius: '12px', 
-            backgroundColor: 'transparent', color: 'var(--text-primary)', border: '1px solid var(--border-color)', fontWeight: 600,
+            width: '100%', padding: '14px', borderRadius: '12px',
+            backgroundColor: '#111', color: '#FFF', fontWeight: 600,
             display: 'flex', alignItems: 'center', justifyContent: 'center'
           }}
         >
-          로그인 없이 기능만 체험하기
+          로그인 없이 이 기기에 저장하기
+        </button>
+        <p style={{ marginTop: 8, fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.55, textAlign: 'left' }}>
+          📦 이 기기 브라우저 저장소(LocalStorage)에만 저장됩니다.
+          <br />⚠️ <b>방문 기록·쿠키·저장소를 삭제하거나, 시크릿 모드를 쓰거나, 다른 기기/브라우저에서 접속하면 링크가 사라져요.</b>
+          <br />영구 보관을 원하면 위의 Google / GitHub 계정 로그인을 권장합니다.
+        </p>
+
+        <button
+          onClick={handleAnon}
+          style={{
+            width: '100%', padding: '12px', borderRadius: '12px',
+            marginTop: '12px',
+            backgroundColor: 'transparent', color: 'var(--text-secondary)', border: '1px solid var(--border-color)', fontWeight: 500,
+            fontSize: 13,
+            display: 'flex', alignItems: 'center', justifyContent: 'center'
+          }}
+        >
+          익명 Firebase 세션으로 체험 (고급)
         </button>
       </div>
     </div>

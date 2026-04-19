@@ -5,6 +5,11 @@ import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, User, getRedirectResult, GithubAuthProvider } from 'firebase/auth';
 import { collection, query, onSnapshot, addDoc, deleteDoc, doc, orderBy } from 'firebase/firestore';
 import { fetchUserRepos, GithubRepo } from '@/lib/github';
+import {
+  getStorageMode, setStorageMode as persistStorageMode,
+  loadLocalLinks, addLocalLink, addLocalLinks, removeLocalLink, removeLocalLinks,
+  StorageMode,
+} from '@/lib/localStore';
 
 export type StashedLink = {
   id: string;
@@ -39,6 +44,11 @@ interface AppContextState {
   activeTag: string | null;
   selectedIds: Set<string>;
   isSelectionMode: boolean;
+  toast: { kind: 'success' | 'error' | 'info'; message: string } | null;
+  dismissToast: () => void;
+  storageMode: StorageMode;
+  enableLocalMode: () => void;
+  switchToCloudMode: () => void;
 
   // Actions
   addLink: (link: Omit<StashedLink, 'id' | 'createdAt'>) => void;
@@ -86,26 +96,72 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isSelectionMode, setSelectionMode] = useState(false);
+  const [toast, setToast] = useState<{ kind: 'success' | 'error' | 'info'; message: string } | null>(null);
+  const toastTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [storageMode, setStorageMode] = useState<StorageMode>(() => (typeof window !== 'undefined' ? getStorageMode() : 'cloud'));
 
-  // 1. Auth Listener
+  const enableLocalMode = () => {
+    persistStorageMode('local');
+    setStorageMode('local');
+    setLinks(loadLocalLinks());
+    setIsAuthLoading(false);
+  };
+
+  const switchToCloudMode = () => {
+    persistStorageMode('cloud');
+    setStorageMode('cloud');
+    // Data stays in localStorage; cloud sign-in will load the cloud collection
+    if (typeof window !== 'undefined') window.location.reload();
+  };
+
+  const showToast = (kind: 'success' | 'error' | 'info', message: string) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToast({ kind, message });
+    toastTimerRef.current = setTimeout(() => setToast(null), 3500);
+  };
+  const dismissToast = () => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToast(null);
+  };
+
+  // 1. Auth Listener — skip entirely in local mode
   useEffect(() => {
+    if (storageMode === 'local') {
+      setUser(null);
+      setIsAuthLoading(false);
+      return;
+    }
     const unsubAuth = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       setIsAuthLoading(false);
-      
-      // Try to recover token if available
+
+      if (currentUser) {
+        console.info('[auth] uid=%s anonymous=%s provider=%s',
+          currentUser.uid,
+          currentUser.isAnonymous,
+          currentUser.providerData[0]?.providerId ?? 'anonymous',
+        );
+      }
+
       if (currentUser && githubToken) {
         const repos = await fetchUserRepos(githubToken);
         setGithubRepos(repos);
       }
     });
     return () => unsubAuth();
-  }, []);
+  }, [storageMode]);
 
-  // 2. Firestore Sync for Links
+  // 2. Links Source — cloud (Firestore) OR local (localStorage)
   useEffect(() => {
+    if (storageMode === 'local') {
+      const data = loadLocalLinks();
+      setLinks(data);
+      const cats = Array.from(new Set(data.map(l => l.category)));
+      setCategories(Array.from(new Set(['개발', '디자인', '나중에 볼 영상', '아이디어', ...cats])));
+      return;
+    }
     if (!user) {
-      setLinks([]); // Clear if logged out
+      setLinks([]);
       return;
     }
     const q = query(collection(db, `users/${user.uid}/links`), orderBy('createdAt', 'desc'));
@@ -115,56 +171,121 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ...doc.data()
       })) as StashedLink[];
       setLinks(data);
-      
-      // Update categories dynamically from links
       const cats = Array.from(new Set(data.map(l => l.category)));
-      // Merge with default ones
       setCategories(Array.from(new Set(['개발', '디자인', '나중에 볼 영상', '아이디어', ...cats])));
     });
 
     return () => unsubDB();
-  }, [user]);
+  }, [user, storageMode]);
 
   const addLink = async (linkData: Omit<StashedLink, 'id' | 'createdAt'>) => {
-    if (!user) return;
+    if (storageMode === 'local') {
+      try {
+        const created = addLocalLink(linkData);
+        setLinks(prev => [created, ...prev]);
+        setIsAddModalOpen(false);
+        showToast('success', `저장됨 — "${linkData.title.slice(0, 40)}"`);
+      } catch (e) {
+        console.error('[addLink/local] failed', e);
+        showToast('error', `저장 실패: ${(e as Error).message}`);
+      }
+      return;
+    }
+    if (!user) {
+      showToast('error', '로그인이 필요합니다.');
+      return;
+    }
     try {
       await addDoc(collection(db, `users/${user.uid}/links`), {
         ...linkData,
         createdAt: Date.now()
       });
       setIsAddModalOpen(false);
+      showToast('success', `저장됨 — "${linkData.title.slice(0, 40)}"`);
     } catch (e) {
-      console.error(e);
-      alert('저장 실패: ' + (e as Error).message);
+      console.error('[addLink] failed', e);
+      showToast('error', `저장 실패: ${(e as Error).message}`);
     }
   };
 
   const addMultipleLinks = async (linksData: Omit<StashedLink, 'id' | 'createdAt'>[]) => {
-    if (!user) return;
+    if (storageMode === 'local') {
+      try {
+        const created = addLocalLinks(linksData);
+        setLinks(prev => [...created, ...prev]);
+        showToast('success', `${linksData.length}개 링크 저장 완료 (이 기기)`);
+      } catch (e) {
+        console.error('[addMultipleLinks/local] failed', e);
+        showToast('error', `일괄 저장 실패: ${(e as Error).message}`);
+      }
+      return;
+    }
+    if (!user) {
+      showToast('error', '로그인이 필요합니다.');
+      return;
+    }
     try {
-      await Promise.all(linksData.map(link => 
+      await Promise.all(linksData.map(link =>
         addDoc(collection(db, `users/${user.uid}/links`), {
           ...link,
           createdAt: Date.now()
         })
       ));
-      alert(`성공! 총 ${linksData.length}개의 링크가 스스로 분류되어 저장되었습니다.`);
+      showToast('success', `${linksData.length}개 링크 저장 완료`);
     } catch (e) {
-      console.error(e);
-      alert('일괄 저장 실패: ' + (e as Error).message);
+      console.error('[addMultipleLinks] failed', e);
+      showToast('error', `일괄 저장 실패: ${(e as Error).message}`);
     }
   };
 
   const removeLink = async (id: string) => {
+    if (storageMode === 'local') {
+      try {
+        removeLocalLink(id);
+        setLinks(prev => prev.filter(l => l.id !== id));
+        showToast('info', '삭제됨');
+      } catch (e) {
+        console.error('[removeLink/local] failed', e);
+        showToast('error', `삭제 실패: ${(e as Error).message}`);
+      }
+      return;
+    }
     if (!user) return;
-    await deleteDoc(doc(db, `users/${user.uid}/links/${id}`));
+    try {
+      await deleteDoc(doc(db, `users/${user.uid}/links/${id}`));
+      showToast('info', '삭제됨');
+    } catch (e) {
+      console.error('[removeLink] failed', e);
+      showToast('error', `삭제 실패: ${(e as Error).message}`);
+    }
   };
 
   const removeManyLinks = async (ids: string[]) => {
-    if (!user || ids.length === 0) return;
-    await Promise.all(ids.map(id => deleteDoc(doc(db, `users/${user.uid}/links/${id}`))));
-    setSelectedIds(new Set());
-    setSelectionMode(false);
+    if (ids.length === 0) return;
+    if (storageMode === 'local') {
+      try {
+        removeLocalLinks(ids);
+        const set = new Set(ids);
+        setLinks(prev => prev.filter(l => !set.has(l.id)));
+        setSelectedIds(new Set());
+        setSelectionMode(false);
+        showToast('info', `${ids.length}개 삭제됨`);
+      } catch (e) {
+        console.error('[removeManyLinks/local] failed', e);
+        showToast('error', `일괄 삭제 실패: ${(e as Error).message}`);
+      }
+      return;
+    }
+    if (!user) return;
+    try {
+      await Promise.all(ids.map(id => deleteDoc(doc(db, `users/${user.uid}/links/${id}`))));
+      setSelectedIds(new Set());
+      setSelectionMode(false);
+      showToast('info', `${ids.length}개 삭제됨`);
+    } catch (e) {
+      console.error('[removeManyLinks] failed', e);
+      showToast('error', `일괄 삭제 실패: ${(e as Error).message}`);
+    }
   };
 
   const toggleSelection = (id: string) => {
@@ -246,7 +367,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const logoutApp = () => auth.signOut();
+  const logoutApp = () => {
+    if (storageMode === 'local') {
+      // Exit local mode so AuthOverlay shows again. Keeps stored links intact.
+      persistStorageMode('cloud');
+      if (typeof window !== 'undefined') window.location.reload();
+      return;
+    }
+    auth.signOut();
+  };
 
   return (
     <AppContext.Provider value={{
@@ -254,6 +383,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       user, isAuthLoading, githubRepos, githubToken,
       isRoadmapModalOpen, isRepoExplorerOpen, selectedRepo,
       isRepoDevelopOpen, developRepo, activeTag, selectedIds, isSelectionMode,
+      toast, dismissToast,
+      storageMode, enableLocalMode, switchToCloudMode,
       addLink, addMultipleLinks, removeLink, removeManyLinks,
       setActiveCategory, setSearchQuery, setActiveTag,
       openAddModal, closeAddModal,

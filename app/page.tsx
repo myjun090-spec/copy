@@ -9,8 +9,9 @@ import RepoExplorerModal from '@/components/RepoExplorerModal';
 import RepoDevelopModal from '@/components/RepoDevelopModal';
 import RepoInsights from '@/components/RepoInsights';
 import LinkCard from '@/components/LinkCard';
+import Toast from '@/components/Toast';
 import { useAppContext, StashedLink } from '@/contexts/AppContext';
-import { Plus, X, Trash2, Tag as TagIcon, Clock } from 'lucide-react';
+import { Plus, X, Trash2, Tag as TagIcon, Clock, AlertTriangle } from 'lucide-react';
 
 const MS_DAY = 24 * 60 * 60 * 1000;
 
@@ -54,6 +55,7 @@ export default function Home() {
     links, categories, activeCategory, setActiveCategory, searchQuery, openAddModal,
     activeTag, setActiveTag,
     isSelectionMode, setSelectionMode, selectedIds, clearSelection, removeManyLinks,
+    user, logoutApp, storageMode, switchToCloudMode,
   } = useAppContext();
 
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -127,6 +129,51 @@ export default function Home() {
       <TopBar onToggleDrawer={() => setDrawerOpen(v => !v)} onToggleSelection={toggleSelection} />
 
       <main style={{ maxWidth: 1200, margin: '0 auto', padding: '28px 24px 96px' }}>
+        {/* Storage-mode notices */}
+        {storageMode === 'local' && (
+          <div style={{
+            marginBottom: 20, padding: '14px 18px', borderRadius: 14,
+            background: 'rgba(2, 132, 199, 0.08)', border: '1px solid rgba(2, 132, 199, 0.35)',
+            display: 'flex', alignItems: 'flex-start', gap: 12,
+          }}>
+            <AlertTriangle size={18} color="#0369a1" style={{ flexShrink: 0, marginTop: 2 }} />
+            <div style={{ flex: 1, fontSize: 13, color: '#0c4a6e', lineHeight: 1.6 }}>
+              <b>이 기기에만 저장 중입니다.</b> 브라우저의 <b>방문 기록·쿠키·저장소</b>를 지우거나, <b>시크릿 모드</b>를 쓰거나, <b>다른 기기/브라우저</b>에서 접속하면 지금까지 저장한 링크가 사라져요.
+              지금 저장해둔 링크를 영구 보관하려면 계정 로그인으로 전환한 뒤 CSV로 내보내 백업하세요.
+              <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
+                <button
+                  onClick={switchToCloudMode}
+                  style={{ padding: '7px 12px', borderRadius: 8, background: '#0369a1', color: '#fff', fontSize: 12, fontWeight: 600 }}
+                >
+                  계정으로 로그인하기
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {storageMode === 'cloud' && user?.isAnonymous && (
+          <div style={{
+            marginBottom: 20, padding: '14px 18px', borderRadius: 14,
+            background: 'rgba(234, 179, 8, 0.1)', border: '1px solid rgba(234, 179, 8, 0.5)',
+            display: 'flex', alignItems: 'flex-start', gap: 12,
+          }}>
+            <AlertTriangle size={18} color="#b45309" style={{ flexShrink: 0, marginTop: 2 }} />
+            <div style={{ flex: 1, fontSize: 13, color: '#7c2d12', lineHeight: 1.55 }}>
+              지금 <b>익명 Firebase 세션</b>으로 접속 중이에요. 브라우저/기기가 바뀌면 이 계정은 사라져서 저장한 링크에 다시 접근할 수 없어요.
+              Google / GitHub 계정으로 로그인하면 데이터가 영구 보관됩니다.
+              <div style={{ marginTop: 8 }}>
+                <button
+                  onClick={logoutApp}
+                  style={{ padding: '7px 12px', borderRadius: 8, background: '#b45309', color: '#fff', fontSize: 12, fontWeight: 600 }}
+                >
+                  로그아웃 후 계정으로 로그인
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Hero quick-add */}
         <section style={{
           marginBottom: 28,
@@ -293,6 +340,7 @@ export default function Home() {
       <RoadmapModal />
       <RepoExplorerModal />
       <RepoDevelopModal />
+      <Toast />
 
       <style dangerouslySetInnerHTML={{ __html: `
         @media (max-width: 1000px) { .masonry-feed { column-count: 2 !important; } }

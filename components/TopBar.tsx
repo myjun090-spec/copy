@@ -10,11 +10,13 @@ interface TopBarProps {
 }
 
 export default function TopBar({ onToggleDrawer, onToggleSelection }: TopBarProps) {
-  const { searchQuery, setSearchQuery, exportCSV, logoutApp, isSelectionMode, user } = useAppContext();
+  const { searchQuery, setSearchQuery, exportCSV, logoutApp, isSelectionMode, user, storageMode } = useAppContext();
 
-  const rawName = user?.displayName || user?.email?.split('@')[0] || 'Guest';
+  const isLocal = storageMode === 'local';
+  const isAnon = !isLocal && !!user?.isAnonymous;
+  const rawName = isLocal ? '로컬 저장' : isAnon ? '익명 세션' : (user?.displayName || user?.email?.split('@')[0] || 'Guest');
   const shortName = rawName.length > 12 ? rawName.slice(0, 11) + '…' : rawName;
-  const initial = (user?.displayName?.[0] ?? user?.email?.[0] ?? 'G').toUpperCase();
+  const initial = isLocal ? '🖥' : isAnon ? '?' : (user?.displayName?.[0] ?? user?.email?.[0] ?? 'G').toUpperCase();
   const email = user?.email ?? '';
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -129,9 +131,17 @@ export default function TopBar({ onToggleDrawer, onToggleSelection }: TopBarProp
             >
               <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border-color)', marginBottom: 6 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{rawName}</div>
-                {email && (
+                {email ? (
                   <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>{email}</div>
-                )}
+                ) : isLocal ? (
+                  <div style={{ fontSize: 11, color: '#0369a1', marginTop: 4, lineHeight: 1.4 }}>
+                    이 기기에만 저장됨. 방문 기록 삭제 시 사라짐
+                  </div>
+                ) : isAnon ? (
+                  <div style={{ fontSize: 11, color: '#b45309', marginTop: 4, lineHeight: 1.4 }}>
+                    세션이 끝나면 데이터가 사라질 수 있어요. 계정 로그인 권장
+                  </div>
+                ) : null}
               </div>
               <button
                 role="menuitem"
@@ -143,7 +153,7 @@ export default function TopBar({ onToggleDrawer, onToggleSelection }: TopBarProp
                 onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(220,38,38,0.08)'; }}
                 onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
               >
-                <LogOut size={14} /> 로그아웃
+                <LogOut size={14} /> {isLocal ? '계정 로그인으로 전환' : '로그아웃'}
               </button>
             </div>
           )}
