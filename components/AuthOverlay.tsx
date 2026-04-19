@@ -1,7 +1,8 @@
 'use client';
 
 import React from 'react';
-import { useAppContext } from '@/contexts/AppContext';
+import { useAppContext, setGithubTokenGlobal } from '@/contexts/AppContext';
+import { GithubAuthProvider } from 'firebase/auth';
 
 export default function AuthOverlay() {
   const { user, isAuthLoading } = useAppContext();
@@ -19,6 +20,20 @@ export default function AuthOverlay() {
   const handleGoogle = async () => {
     const { loginWithGoogle } = await import('@/lib/firebase');
     loginWithGoogle().catch(e => alert(e.message));
+  };
+
+  const handleGithub = async () => {
+    const { loginWithGithub } = await import('@/lib/firebase');
+    try {
+      const result = await loginWithGithub();
+      const credential = GithubAuthProvider.credentialFromResult(result);
+      const token = credential?.accessToken;
+      if (token) {
+        setGithubTokenGlobal(token);
+      }
+    } catch (e) {
+      alert((e as Error).message);
+    }
   };
   
   const handleAnon = async () => {
@@ -38,17 +53,30 @@ export default function AuthOverlay() {
           클라우드 동기화와 협업을 위해 로그인이 필요합니다.
         </p>
 
-        <button 
-          onClick={handleGoogle}
-          style={{
-            width: '100%', padding: '14px', borderRadius: '12px', 
-            backgroundColor: '#FFF', color: '#000', fontWeight: 600,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-            marginBottom: '12px'
-          }}
-        >
-          Google 계정으로 계속하기
-        </button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <button 
+            onClick={handleGoogle}
+            style={{
+              width: '100%', padding: '14px', borderRadius: '12px', 
+              backgroundColor: '#FFF', color: '#000', fontWeight: 600,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+              border: '1px solid var(--border-color)'
+            }}
+          >
+            Google 계정으로 계속하기
+          </button>
+
+          <button 
+            onClick={handleGithub}
+            style={{
+              width: '100%', padding: '14px', borderRadius: '12px', 
+              backgroundColor: '#24292F', color: '#FFF', fontWeight: 600,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
+            }}
+          >
+            GitHub 계정으로 계속하기
+          </button>
+        </div>
 
         <div style={{ margin: '16px 0', fontSize: '12px', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <div style={{ flex: 1, height: '1px', backgroundColor: 'var(--border-color)' }} />

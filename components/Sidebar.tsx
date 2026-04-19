@@ -7,7 +7,10 @@ import Link from 'next/link';
 import { classifyLink } from '@/lib/classifier';
 
 export default function Sidebar() {
-  const { categories, activeCategory, setActiveCategory, exportCSV, openAddModal, addMultipleLinks } = useAppContext();
+  const { 
+    categories, activeCategory, setActiveCategory, exportCSV, openAddModal, addMultipleLinks,
+    githubRepos, githubToken, addLink
+  } = useAppContext();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -134,6 +137,50 @@ export default function Sidebar() {
             <Plus size={18} /> Add Link
           </button>
         </div>
+
+        {/* GitHub Repositories Section */}
+        {githubToken && githubRepos.length > 0 && (
+          <div style={{ marginTop: '32px' }}>
+            <h3 style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px', padding: '0 12px' }}>
+              My Repositories
+            </h3>
+            <ul style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              {githubRepos.map(repo => (
+                <li key={repo.id}>
+                  <div style={{
+                    width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '8px 12px', borderRadius: '8px', cursor: 'pointer'
+                  }} className="repo-item">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
+                      <FolderOpen size={16} color="var(--text-secondary)" />
+                      <span style={{ fontSize: '13px', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {repo.name}
+                      </span>
+                    </div>
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        addLink({
+                          url: repo.html_url,
+                          title: repo.name,
+                          description: repo.description || "나의 GitHub 저장소입니다.",
+                          category: '개발',
+                          tags: [repo.language || 'Code', 'Repository'],
+                          domain: 'github.com',
+                          memo: '자동 연동 저장',
+                          image: '/mock-image-1.jpg'
+                        });
+                      }}
+                      style={{ padding: '4px 8px', borderRadius: '6px', fontSize: '11px', backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}
+                    >
+                      Stash
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </nav>
 
       {/* Footer Nav */}

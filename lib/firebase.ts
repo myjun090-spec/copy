@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInAnonymously, signOut } from "firebase/auth";
+import { getAuth, GoogleAuthProvider, GithubAuthProvider, signInWithPopup, signInAnonymously, signOut } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 // import { getAnalytics } from "firebase/analytics";
 
@@ -19,7 +19,14 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const googleProvider = new GoogleAuthProvider();
+export const githubProvider = new GithubAuthProvider();
+// Request repo scope for repository management
+githubProvider.addScope('repo');
 
 export const loginWithGoogle = () => signInWithPopup(auth, googleProvider);
+export const loginWithGithub = async () => {
+  const result = await signInWithPopup(auth, githubProvider);
+  return result;
+};
 export const loginAnonymously = () => signInAnonymously(auth);
 export const logout = () => signOut(auth);

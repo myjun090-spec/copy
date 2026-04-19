@@ -2,8 +2,9 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { auth, db } from '@/lib/firebase';
-import { onAuthStateChanged, User } from 'firebase/auth';
+import { onAuthStateChanged, User, getRedirectResult, GithubAuthProvider } from 'firebase/auth';
 import { collection, query, onSnapshot, addDoc, deleteDoc, doc, orderBy } from 'firebase/firestore';
+import { fetchUserRepos, GithubRepo } from '@/lib/github';
 
 export type StashedLink = {
   id: string;
@@ -27,6 +28,8 @@ interface AppContextState {
   clipboardData: string | null;
   user: User | null;
   isAuthLoading: boolean;
+  githubRepos: GithubRepo[];
+  githubToken: string | null;
   
   // Actions
   addLink: (link: Omit<StashedLink, 'id' | 'createdAt'>) => void;
@@ -52,12 +55,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   
   const [user, setUser] = useState<User | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [githubRepos, setGithubRepos] = useState<GithubRepo[]>([]);
+  const [githubToken, setGithubToken] = useState<string | null>(typeof window !== 'undefined' ? localStorage.getItem('gh_token') : null);
 
   // 1. Auth Listener
   useEffect(() => {
-    const unsubAuth = onAuthStateChanged(auth, (currentUser) => {
+    const unsubAuth = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       setIsAuthLoading(false);
+      
+      // Try to recover token if available
+      if (currentUser && githubToken) {
+        const repos = await fetchUserRepos(githubToken);
+        setGithubRepos(repos);
+      }
     });
     return () => unsubAuth();
   }, []);
@@ -171,7 +182,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   return (
     <AppContext.Provider value={{
       links, categories, activeCategory, searchQuery, isAddModalOpen, clipboardData,
-      user, isAuthLoading,
+      user, isAuthLoading, githubRepos, githubToken,
       addLink, addMultipleLinks, removeLink, setActiveCategory, setSearchQuery, openAddModal, closeAddModal,
       exportCSV, logoutApp
     }}>
@@ -179,6 +190,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     </AppContext.Provider>
   );
 }
+
+export const setGithubTokenGlobal = (token: string) => {
+  localStorage.setItem('gh_token', token);
+  window.location.reload(); // Quick way to refresh state
+};
 
 export function useAppContext() {
   const context = useContext(AppContext);
