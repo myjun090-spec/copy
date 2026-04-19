@@ -6,7 +6,7 @@ import { Search, Hash, Plus, Settings, FolderOpen, Crown, Download, Command } fr
 import Link from 'next/link';
 
 export default function Sidebar() {
-  const { categories, activeCategory, setActiveCategory, isPro, toggleProStatus, exportCSV, openAddModal } = useAppContext();
+  const { categories, activeCategory, setActiveCategory, exportCSV, openAddModal } = useAppContext();
 
   return (
     <aside style={{
@@ -87,13 +87,6 @@ export default function Sidebar() {
           style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 12px', color: 'var(--text-secondary)', fontSize: '14px' }}
         >
           <Download size={18} /> Export (CSV)
-        </button>
-        
-        <button 
-          onClick={toggleProStatus}
-          style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 12px', color: isPro ? 'var(--accent-cyan)' : 'var(--text-secondary)', fontSize: '14px' }}
-        >
-          <Crown size={18} /> {isPro ? 'Pro Active' : 'Upgrade to Pro'}
         </button>
         
         <button 

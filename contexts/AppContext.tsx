@@ -25,7 +25,6 @@ interface AppContextState {
   searchQuery: string;
   isAddModalOpen: boolean;
   clipboardData: string | null;
-  isPro: boolean;
   user: User | null;
   isAuthLoading: boolean;
   
@@ -36,7 +35,6 @@ interface AppContextState {
   setSearchQuery: (query: string) => void;
   openAddModal: (clipboardText?: string) => void;
   closeAddModal: () => void;
-  toggleProStatus: () => void;
   exportCSV: () => void;
   logoutApp: () => void;
 }
@@ -50,7 +48,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [clipboardData, setClipboardData] = useState<string | null>(null);
-  const [isPro, setIsPro] = useState(true);
   
   const [user, setUser] = useState<User | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
@@ -126,10 +123,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const exportCSV = () => {
-    if (!isPro) {
-      alert('CSV 익스포트 기능은 Pro 플랜에서 사용 가능합니다.');
-      return;
-    }
     const header = ['URL', '제목', '설명', '메모', '카테고리', '태그', '저장일'];
     const csvContent = [
       header.join(','),
@@ -160,10 +153,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AppContext.Provider value={{
-      links, categories, activeCategory, searchQuery, isAddModalOpen, clipboardData, isPro,
+      links, categories, activeCategory, searchQuery, isAddModalOpen, clipboardData,
       user, isAuthLoading,
       addLink, removeLink, setActiveCategory, setSearchQuery, openAddModal, closeAddModal,
-      toggleProStatus: () => setIsPro(!isPro), exportCSV, logoutApp
+      exportCSV, logoutApp
     }}>
       {children}
     </AppContext.Provider>

@@ -5,7 +5,7 @@ import { useAppContext } from '@/contexts/AppContext';
 import { X, Search, FileText, Plus, Sparkles, Image as ImageIcon } from 'lucide-react';
 
 export default function AddLinkModal() {
-  const { isAddModalOpen, closeAddModal, clipboardData, addLink, categories, isPro } = useAppContext();
+  const { isAddModalOpen, closeAddModal, clipboardData, addLink, categories } = useAppContext();
   
   const [memo, setMemo] = useState('');
   const [tags, setTags] = useState<string[]>([]);

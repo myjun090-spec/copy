@@ -37,9 +37,6 @@ export default function Header() {
         <button style={{ width: '40px', height: '40px', borderRadius: '50%', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Bell size={18} color="var(--text-secondary)" />
         </button>
-        <button className="primary-btn" style={{ background: 'linear-gradient(90deg, #00D5D5, #00A3FF)', color: '#FFF', border: 'none' }}>
-          Pro 시작하기
-        </button>
       </div>
     </header>
   );
