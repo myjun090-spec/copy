@@ -4,6 +4,8 @@ import React, { useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import AddLinkModal from '@/components/AddLinkModal';
+import RoadmapModal from '@/components/RoadmapModal';
+import RepoExplorerModal from '@/components/RepoExplorerModal';
 import LinkCard from '@/components/LinkCard';
 import { useAppContext } from '@/contexts/AppContext';
 import { Share, CheckSquare } from 'lucide-react';
@@ -98,6 +100,8 @@ export default function Home() {
       </div>
 
       <AddLinkModal />
+      <RoadmapModal />
+      <RepoExplorerModal />
     </div>
   );
 }

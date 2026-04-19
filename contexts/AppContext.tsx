@@ -30,6 +30,9 @@ interface AppContextState {
   isAuthLoading: boolean;
   githubRepos: GithubRepo[];
   githubToken: string | null;
+  isRoadmapModalOpen: boolean;
+  isRepoExplorerOpen: boolean;
+  selectedRepo: GithubRepo | null;
   
   // Actions
   addLink: (link: Omit<StashedLink, 'id' | 'createdAt'>) => void;
@@ -39,6 +42,10 @@ interface AppContextState {
   setSearchQuery: (query: string) => void;
   openAddModal: (clipboardText?: string) => void;
   closeAddModal: () => void;
+  openRoadmap: () => void;
+  closeRoadmap: () => void;
+  openRepoExplorer: (repo: GithubRepo) => void;
+  closeRepoExplorer: () => void;
   exportCSV: () => void;
   logoutApp: () => void;
 }
@@ -57,6 +64,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [githubRepos, setGithubRepos] = useState<GithubRepo[]>([]);
   const [githubToken, setGithubToken] = useState<string | null>(typeof window !== 'undefined' ? localStorage.getItem('gh_token') : null);
+  
+  const [isRoadmapModalOpen, setIsRoadmapModalOpen] = useState(false);
+  const [isRepoExplorerOpen, setIsRepoExplorerOpen] = useState(false);
+  const [selectedRepo, setSelectedRepo] = useState<GithubRepo | null>(null);
 
   // 1. Auth Listener
   useEffect(() => {
@@ -150,6 +161,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setClipboardData(null);
   };
 
+  const openRoadmap = () => setIsRoadmapModalOpen(true);
+  const closeRoadmap = () => setIsRoadmapModalOpen(false);
+  
+  const openRepoExplorer = (repo: GithubRepo) => {
+    setSelectedRepo(repo);
+    setIsRepoExplorerOpen(true);
+  };
+  const closeRepoExplorer = () => {
+    setIsRepoExplorerOpen(false);
+    setSelectedRepo(null);
+  };
+
   const exportCSV = () => {
     const header = ['URL', '제목', '설명', '메모', '카테고리', '태그', '저장일'];
     const csvContent = [
@@ -183,7 +206,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     <AppContext.Provider value={{
       links, categories, activeCategory, searchQuery, isAddModalOpen, clipboardData,
       user, isAuthLoading, githubRepos, githubToken,
+      isRoadmapModalOpen, isRepoExplorerOpen, selectedRepo,
       addLink, addMultipleLinks, removeLink, setActiveCategory, setSearchQuery, openAddModal, closeAddModal,
+      openRoadmap, closeRoadmap, openRepoExplorer, closeRepoExplorer,
       exportCSV, logoutApp
     }}>
       {children}

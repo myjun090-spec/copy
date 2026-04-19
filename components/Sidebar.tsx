@@ -2,14 +2,14 @@
 
 import React, { useRef } from 'react';
 import { useAppContext } from '@/contexts/AppContext';
-import { Search, Hash, Plus, Settings, FolderOpen, Download, Command, MessageSquare } from 'lucide-react';
+import { Search, Hash, Plus, Settings, FolderOpen, Download, Command, MessageSquare, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { classifyLink } from '@/lib/classifier';
 
 export default function Sidebar() {
   const { 
     categories, activeCategory, setActiveCategory, exportCSV, openAddModal, addMultipleLinks,
-    githubRepos, githubToken, addLink
+    githubRepos, githubToken, addLink, openRepoExplorer, openRoadmap
   } = useAppContext();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -175,6 +175,15 @@ export default function Sidebar() {
                     >
                       Stash
                     </button>
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openRepoExplorer(repo);
+                      }}
+                      style={{ padding: '4px 8px', borderRadius: '6px', fontSize: '11px', backgroundColor: 'var(--bg-elevated)', color: 'var(--accent-cyan)', border: '1px solid var(--accent-cyan)' }}
+                    >
+                      Explore
+                    </button>
                   </div>
                 </li>
               ))}
@@ -200,6 +209,13 @@ export default function Sidebar() {
           <Download size={18} /> Export (CSV)
         </button>
         
+        <button 
+          onClick={openRoadmap}
+          style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 12px', color: 'var(--accent-cyan)', fontSize: '14px', fontWeight: 600 }}
+        >
+          <Sparkles size={18} /> Future Roadmap 🚀
+        </button>
+
         <button 
           style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 12px', color: 'var(--text-secondary)', fontSize: '14px' }}
         >
