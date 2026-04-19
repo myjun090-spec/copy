@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAppContext } from '@/contexts/AppContext';
 import { X, Search, FileText, Plus, Sparkles, Image as ImageIcon } from 'lucide-react';
+import { classifyLink } from '@/lib/classifier';
 
 export default function AddLinkModal() {
   const { isAddModalOpen, closeAddModal, clipboardData, addLink, categories } = useAppContext();
@@ -20,42 +21,30 @@ export default function AddLinkModal() {
   useEffect(() => {
     if (isAddModalOpen && clipboardData) {
       // Simulate AI Parsing
-      setIsAnalyzing(true);
-      const timer = setTimeout(() => {
+      const fetchTitle = async () => {
+        try {
+          const res = await fetch(`/api/title?url=${encodeURIComponent(clipboardData)}`);
+          const data = await res.json();
+          return data.title;
+        } catch (e) {
+          return new URL(clipboardData.startsWith('http') ? clipboardData : 'https://example.com').hostname;
+        }
+      };
+
+      const timer = setTimeout(async () => {
+        const title = await fetchTitle();
         setIsAnalyzing(false);
+        
+        const { category, tags: autoTags } = classifyLink(clipboardData);
+        
         setPreviewData({
-          title: '새로운 링크',
+          title: title || '새로운 링크',
           description: clipboardData.substring(0, 50) + '...',
           domain: new URL(clipboardData.startsWith('http') ? clipboardData : 'https://example.com').hostname,
         });
-        
-        // Local Mock AI: Match existing categories
-        let matchedCategory = '아이디어'; // fallback
-        const lowerData = clipboardData.toLowerCase();
-        
-        for (const cat of categories) {
-          if (lowerData.includes(cat.toLowerCase())) {
-            matchedCategory = cat;
-            break;
-          }
-        }
-        
-        // Match specific keywords for tech tags (Simulating AI understanding)
-        let generatedTags = ['스크랩'];
-        if (lowerData.includes('github') || lowerData.includes('code') || matchedCategory === '개발') {
-          generatedTags = ['개발', '코드'];
-          if (!matchedCategory) matchedCategory = '개발';
-        } else if (lowerData.includes('youtube') || lowerData.includes('video')) {
-          generatedTags = ['영상', '참고'];
-          matchedCategory = '나중에 볼 영상';
-        } else if (lowerData.includes('design') || lowerData.includes('figma')) {
-          generatedTags = ['디자인', 'UI'];
-          matchedCategory = '디자인';
-        }
 
-        setTags(generatedTags);
-        setSelectedCategory(matchedCategory);
-
+        setTags(autoTags);
+        setSelectedCategory(category);
       }, 1200);
       return () => clearTimeout(timer);
     }

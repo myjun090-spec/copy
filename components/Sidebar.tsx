@@ -4,6 +4,7 @@ import React, { useRef } from 'react';
 import { useAppContext } from '@/contexts/AppContext';
 import { Search, Hash, Plus, Settings, FolderOpen, Download, Command, MessageSquare } from 'lucide-react';
 import Link from 'next/link';
+import { classifyLink } from '@/lib/classifier';
 
 export default function Sidebar() {
   const { categories, activeCategory, setActiveCategory, exportCSV, openAddModal, addMultipleLinks } = useAppContext();
@@ -30,40 +31,34 @@ export default function Sidebar() {
       return;
     }
 
-    const newLinks = uniqueUrls.map(url => {
-        let matchedCategory = '아이디어'; // fallback
-        const lowerData = url.toLowerCase();
+    const newLinks = await Promise.all(uniqueUrls.map(async (url, index) => {
+        const { category, tags } = classifyLink(url);
         
-        for (const cat of categories) {
-          if (lowerData.includes(cat.toLowerCase())) {
-            matchedCategory = cat;
-            break;
-          }
-        }
-        
-        let generatedTags = ['카톡추출'];
-        if (lowerData.includes('github') || lowerData.includes('code') || matchedCategory === '개발') {
-          generatedTags = ['개발', '코드', '카톡추출'];
-          if (!matchedCategory) matchedCategory = '개발';
-        } else if (lowerData.includes('youtube') || lowerData.includes('video')) {
-          generatedTags = ['영상', '참고', '카톡추출'];
-          matchedCategory = '나중에 볼 영상';
-        }
-        
+        // Match specific keywords for tech tags (Simulating AI understanding)
         let domain = '웹사이트';
         try { domain = new URL(url).hostname; } catch(e){}
 
+        // Fetch title only for the first 10 to avoid timeouts, others use domain
+        let displayTitle = domain;
+        if (index < 10) {
+          try {
+            const res = await fetch(`/api/title?url=${encodeURIComponent(url)}`);
+            const data = await res.json();
+            if (data.title) displayTitle = data.title;
+          } catch(e) {}
+        }
+
         return {
           url: url,
-          title: "카톡 추출 링크",
-          description: "카카오톡 내게쓰기에서 자동 임포트된 복구 링크입니다.",
+          title: displayTitle,
+          description: "카카오톡 내게쓰기에서 자동 임포트된 링크입니다.",
           image: '/mock-image-1.jpg',
           memo: '카카오톡 자동 백업',
-          tags: generatedTags,
-          category: matchedCategory,
+          tags: [...tags, '카톡추출'],
+          category: category,
           domain: domain
         };
-    });
+    }));
 
     await addMultipleLinks(newLinks);
     if (e.target) e.target.value = '';
