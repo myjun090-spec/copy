@@ -33,7 +33,7 @@ export default function AuthOverlay() {
       zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center'
     }}>
       <div className="glass-panel" style={{ width: '400px', padding: '40px 32px', textAlign: 'center', borderRadius: '24px' }}>
-        <h1 style={{ fontSize: '24px', fontWeight: 700, marginBottom: '8px' }}>Stashby Clone</h1>
+        <h1 style={{ fontSize: '24px', fontWeight: 700, marginBottom: '8px' }}>Dawith Copy</h1>
         <p style={{ color: 'var(--text-secondary)', marginBottom: '32px', fontSize: '14px' }}>
           클라우드 동기화와 협업을 위해 로그인이 필요합니다.
         </p>
