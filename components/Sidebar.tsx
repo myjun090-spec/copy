@@ -1,26 +1,35 @@
 'use client';
 
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { useAppContext } from '@/contexts/AppContext';
-import { Search, Hash, Plus, Settings, FolderOpen, Download, Command, MessageSquare, Sparkles } from 'lucide-react';
+import { Search, Hash, Plus, Settings, FolderOpen, Download, Command, MessageSquare, Sparkles, GitBranch } from 'lucide-react';
 import Link from 'next/link';
-import { classifyLink } from '@/lib/classifier';
+import { classifyLink, buildAutoDescription, buildAutoTitle } from '@/lib/classifier';
+import { mapWithConcurrency } from '@/lib/batch';
+
+interface ImportProgress {
+  done: number;
+  total: number;
+}
 
 export default function Sidebar() {
-  const { 
+  const {
     categories, activeCategory, setActiveCategory, exportCSV, openAddModal, addMultipleLinks,
-    githubRepos, githubToken, addLink, openRepoExplorer, openRoadmap
+    githubRepos, githubToken, addLink, openRepoExplorer, openRoadmap, openRepoDevelop
   } = useAppContext();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importProgress, setImportProgress] = useState<ImportProgress | null>(null);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const text = await file.text();
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    // Match http(s) URLs, stopping at whitespace or common chat delimiters
+    const urlRegex = /https?:\/\/[^\s<>"')\]]+/g;
     const matches = text.match(urlRegex) || [];
-    const uniqueUrls = Array.from(new Set(matches));
+    const cleaned = matches.map(u => u.replace(/[),.!?]+$/g, ''));
+    const uniqueUrls = Array.from(new Set(cleaned));
 
     if (uniqueUrls.length === 0) {
        alert("텍스트 파일 내에서 링크를 찾을 수 없습니다.");
@@ -28,62 +37,61 @@ export default function Sidebar() {
        return;
     }
 
-    const confirmMsg = `카카오톡 대화록에서 ${uniqueUrls.length}개의 고유 링크를 찾았습니다. Firebase에 모두 분류하여 저장하시겠습니까?`;
+    const confirmMsg = `카카오톡 대화록에서 ${uniqueUrls.length}개의 고유 링크를 찾았습니다. 각 링크의 메타데이터와 해시태그를 AI 분석하여 저장합니다. 진행할까요?`;
     if (!confirm(confirmMsg)) {
       if (e.target) e.target.value = '';
       return;
     }
 
-    const newLinks = await Promise.all(uniqueUrls.map(async (url, index) => {
-        const { category, tags } = classifyLink(url);
-        
-        // Match specific keywords for tech tags (Simulating AI understanding)
+    setImportProgress({ done: 0, total: uniqueUrls.length });
+
+    const newLinks = await mapWithConcurrency(
+      uniqueUrls,
+      6,
+      async (url) => {
         let domain = '웹사이트';
-        try { domain = new URL(url).hostname; } catch(e){}
+        try { domain = new URL(url).hostname; } catch {}
 
-        // Fetch actual metadata for better context
-        let displayTitle = domain;
-        let displayDesc = "카카오톡 내게쓰기에서 자동 임포트된 링크입니다.";
-        let displayImg = '/mock-image-1.jpg';
+        let meta: { title?: string; description?: string; image?: string } = {};
+        try {
+          const res = await fetch(`/api/title?url=${encodeURIComponent(url)}`);
+          if (res.ok) meta = await res.json();
+        } catch {}
 
-        if (index < 10) {
-          try {
-            const res = await fetch(`/api/title?url=${encodeURIComponent(url)}`);
-            const data = await res.json();
-            if (data.title) displayTitle = data.title;
-            if (data.description) displayDesc = data.description;
-            if (data.image) displayImg = data.image;
-          } catch(e) {}
-        }
+        const { category, tags } = classifyLink(url, { title: meta.title, description: meta.description });
+        const title = buildAutoTitle(url, { title: meta.title });
+        const description = buildAutoDescription(url, { description: meta.description, title: meta.title });
 
         return {
-          url: url,
-          title: displayTitle,
-          description: displayDesc,
-          image: displayImg,
-          memo: '카카오톡 자동 백업',
-          tags: [...tags, '카톡추출'],
-          category: category,
-          domain: domain,
-          relatedRepo: null // Initial upload is not linked yet
+          url,
+          title,
+          description,
+          image: meta.image && !meta.image.includes('mock-image') ? meta.image : '/mock-image-1.jpg',
+          memo: '카톡 자동 임포트',
+          tags: Array.from(new Set([...tags, '카톡추출'])),
+          category,
+          domain,
+          relatedRepo: null,
         };
-    }));
+      },
+      (done, total) => setImportProgress({ done, total }),
+    );
 
     await addMultipleLinks(newLinks);
+    setImportProgress(null);
     if (e.target) e.target.value = '';
   };
 
   return (
     <aside style={{
-      width: '260px',
+      width: '280px',
       backgroundColor: 'var(--bg-secondary)',
       borderRight: '1px solid var(--border-color)',
       padding: '24px 16px',
       display: 'flex',
       flexDirection: 'column',
-      position: 'sticky',
-      top: 0,
       height: '100vh',
+      overflowY: 'auto',
     }}>
       {/* Profile Section */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '32px', padding: '0 8px' }}>
@@ -182,7 +190,7 @@ export default function Sidebar() {
                     >
                       Stash
                     </button>
-                    <button 
+                    <button
                       onClick={(e) => {
                         e.stopPropagation();
                         openRepoExplorer(repo);
@@ -190,6 +198,16 @@ export default function Sidebar() {
                       style={{ padding: '4px 8px', borderRadius: '6px', fontSize: '11px', backgroundColor: 'var(--bg-elevated)', color: 'var(--accent-cyan)', border: '1px solid var(--accent-cyan)' }}
                     >
                       Explore
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openRepoDevelop(repo);
+                      }}
+                      title="이 레포 기반으로 발전시키기"
+                      style={{ padding: '4px 8px', borderRadius: '6px', fontSize: '11px', backgroundColor: 'var(--accent-cyan)', color: '#000', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}
+                    >
+                      <GitBranch size={11} /> Develop
                     </button>
                   </div>
                 </li>
@@ -229,6 +247,21 @@ export default function Sidebar() {
           <Settings size={18} /> Settings
         </button>
       </div>
+
+      {/* Import progress */}
+      {importProgress && (
+        <div style={{ marginTop: '16px', padding: '12px 14px', backgroundColor: 'var(--bg-elevated)', borderRadius: '12px', border: '1px solid var(--accent-cyan)' }}>
+          <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent-cyan)', marginBottom: '6px' }}>
+            링크 분석 중 · {importProgress.done}/{importProgress.total}
+          </div>
+          <div style={{ height: '6px', background: 'var(--bg-tertiary)', borderRadius: '999px', overflow: 'hidden' }}>
+            <div style={{
+              width: `${(importProgress.done / Math.max(importProgress.total, 1)) * 100}%`,
+              height: '100%', background: 'var(--accent-cyan)', transition: 'width 200ms ease'
+            }} />
+          </div>
+        </div>
+      )}
 
       {/* Add Shortcut Hint */}
       <div style={{ marginTop: '24px', padding: '16px', backgroundColor: 'var(--bg-elevated)', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '12px' }}>

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAppContext } from '@/contexts/AppContext';
 import { X, Search, FileText, Plus, Sparkles, Image as ImageIcon } from 'lucide-react';
-import { classifyLink } from '@/lib/classifier';
+import { classifyLink, buildAutoDescription, buildAutoTitle } from '@/lib/classifier';
 
 export default function AddLinkModal() {
   const { isAddModalOpen, closeAddModal, clipboardData, addLink, categories } = useAppContext();
@@ -39,14 +39,19 @@ export default function AddLinkModal() {
       const timer = setTimeout(async () => {
         const meta = await fetchMetadata();
         setIsAnalyzing(false);
-        
-        const { category, tags: autoTags } = classifyLink(clipboardData);
-        
+
+        const { category, tags: autoTags } = classifyLink(clipboardData, { title: meta.title, description: meta.description });
+        const autoTitle = buildAutoTitle(clipboardData, { title: meta.title });
+        const autoDesc = buildAutoDescription(clipboardData, { title: meta.title, description: meta.description });
+
+        let host = '웹사이트';
+        try { host = new URL(clipboardData.startsWith('http') ? clipboardData : `https://${clipboardData}`).hostname; } catch {}
+
         setPreviewData({
-          title: meta.title || '새로운 링크',
-          description: meta.description || clipboardData.substring(0, 50) + '...',
+          title: autoTitle || '새로운 링크',
+          description: autoDesc,
           image: meta.image || '',
-          domain: new URL(clipboardData.startsWith('http') ? clipboardData : 'https://example.com').hostname,
+          domain: host,
         });
 
         setTags(autoTags);

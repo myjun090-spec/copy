@@ -64,3 +64,44 @@ export async function fetchFileRaw(downloadUrl: string): Promise<string> {
     return '';
   }
 }
+
+export interface RepoReadme {
+  content: string;
+  encoding: string;
+}
+
+export async function fetchRepoReadme(token: string, owner: string, repo: string): Promise<string> {
+  try {
+    const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/readme`, {
+      headers: {
+        Authorization: `token ${token}`,
+        Accept: 'application/vnd.github.v3.raw',
+      },
+    });
+    if (!response.ok) return '';
+    return await response.text();
+  } catch (error) {
+    console.error('Error fetching README:', error);
+    return '';
+  }
+}
+
+export interface RepoLanguages {
+  [language: string]: number;
+}
+
+export async function fetchRepoLanguages(token: string, owner: string, repo: string): Promise<RepoLanguages> {
+  try {
+    const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/languages`, {
+      headers: {
+        Authorization: `token ${token}`,
+        Accept: 'application/vnd.github.v3+json',
+      },
+    });
+    if (!response.ok) return {};
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching languages:', error);
+    return {};
+  }
+}

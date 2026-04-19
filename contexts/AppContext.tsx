@@ -34,19 +34,31 @@ interface AppContextState {
   isRoadmapModalOpen: boolean;
   isRepoExplorerOpen: boolean;
   selectedRepo: GithubRepo | null;
-  
+  isRepoDevelopOpen: boolean;
+  developRepo: GithubRepo | null;
+  activeTag: string | null;
+  selectedIds: Set<string>;
+  isSelectionMode: boolean;
+
   // Actions
   addLink: (link: Omit<StashedLink, 'id' | 'createdAt'>) => void;
   addMultipleLinks: (links: Omit<StashedLink, 'id' | 'createdAt'>[]) => Promise<void>;
   removeLink: (id: string) => void;
+  removeManyLinks: (ids: string[]) => Promise<void>;
   setActiveCategory: (cat: string | null) => void;
   setSearchQuery: (query: string) => void;
+  setActiveTag: (tag: string | null) => void;
   openAddModal: (clipboardText?: string) => void;
   closeAddModal: () => void;
   openRoadmap: () => void;
   closeRoadmap: () => void;
   openRepoExplorer: (repo: GithubRepo) => void;
   closeRepoExplorer: () => void;
+  openRepoDevelop: (repo: GithubRepo) => void;
+  closeRepoDevelop: () => void;
+  toggleSelection: (id: string) => void;
+  clearSelection: () => void;
+  setSelectionMode: (on: boolean) => void;
   exportCSV: () => void;
   logoutApp: () => void;
 }
@@ -69,6 +81,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isRoadmapModalOpen, setIsRoadmapModalOpen] = useState(false);
   const [isRepoExplorerOpen, setIsRepoExplorerOpen] = useState(false);
   const [selectedRepo, setSelectedRepo] = useState<GithubRepo | null>(null);
+  const [isRepoDevelopOpen, setIsRepoDevelopOpen] = useState(false);
+  const [developRepo, setDevelopRepo] = useState<GithubRepo | null>(null);
+  const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isSelectionMode, setSelectionMode] = useState(false);
 
   // 1. Auth Listener
   useEffect(() => {
@@ -143,6 +160,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await deleteDoc(doc(db, `users/${user.uid}/links/${id}`));
   };
 
+  const removeManyLinks = async (ids: string[]) => {
+    if (!user || ids.length === 0) return;
+    await Promise.all(ids.map(id => deleteDoc(doc(db, `users/${user.uid}/links/${id}`))));
+    setSelectedIds(new Set());
+    setSelectionMode(false);
+  };
+
+  const toggleSelection = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const clearSelection = () => {
+    setSelectedIds(new Set());
+  };
+
   const openAddModal = async (text?: string) => {
     if (text) {
       setClipboardData(text);
@@ -172,6 +208,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const closeRepoExplorer = () => {
     setIsRepoExplorerOpen(false);
     setSelectedRepo(null);
+  };
+
+  const openRepoDevelop = (repo: GithubRepo) => {
+    setDevelopRepo(repo);
+    setIsRepoDevelopOpen(true);
+  };
+  const closeRepoDevelop = () => {
+    setIsRepoDevelopOpen(false);
+    setDevelopRepo(null);
   };
 
   const exportCSV = () => {
@@ -208,8 +253,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       links, categories, activeCategory, searchQuery, isAddModalOpen, clipboardData,
       user, isAuthLoading, githubRepos, githubToken,
       isRoadmapModalOpen, isRepoExplorerOpen, selectedRepo,
-      addLink, addMultipleLinks, removeLink, setActiveCategory, setSearchQuery, openAddModal, closeAddModal,
+      isRepoDevelopOpen, developRepo, activeTag, selectedIds, isSelectionMode,
+      addLink, addMultipleLinks, removeLink, removeManyLinks,
+      setActiveCategory, setSearchQuery, setActiveTag,
+      openAddModal, closeAddModal,
       openRoadmap, closeRoadmap, openRepoExplorer, closeRepoExplorer,
+      openRepoDevelop, closeRepoDevelop,
+      toggleSelection, clearSelection, setSelectionMode,
       exportCSV, logoutApp
     }}>
       {children}

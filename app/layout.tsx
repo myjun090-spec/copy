@@ -19,10 +19,7 @@ export default function RootLayout({
       <body>
         <AppProvider>
           <AuthOverlay />
-          <div style={{ display: 'flex', minHeight: '100vh' }}>
-            {/* Sidebar will be placed inside page.tsx or here. Decided to keep page clean and put layout shell here */}
-            {children}
-          </div>
+          {children}
         </AppProvider>
       </body>
     </html>
