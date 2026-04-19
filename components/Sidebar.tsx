@@ -143,7 +143,7 @@ export default function Sidebar() {
 
       {/* Footer Nav */}
       <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <input type="file" accept=".txt" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileUpload} />
+        <input type="file" accept=".txt,.csv" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileUpload} />
         <button 
           onClick={() => fileInputRef.current?.click()}
           style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 12px', color: 'var(--text-secondary)', fontSize: '14px' }}
