@@ -16,6 +16,7 @@ export type StashedLink = {
   tags: string[];
   category: string;
   domain: string;
+  relatedRepo: string | null;
   createdAt: number;
 };
 

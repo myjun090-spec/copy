@@ -16,30 +16,36 @@ export default function AddLinkModal() {
     title: '',
     description: '',
     domain: '',
+    image: '',
   });
+  const [targetRepo, setTargetRepo] = useState<string | null>(null);
 
   useEffect(() => {
     if (isAddModalOpen && clipboardData) {
       // Simulate AI Parsing
-      const fetchTitle = async () => {
+      const fetchMetadata = async () => {
         try {
           const res = await fetch(`/api/title?url=${encodeURIComponent(clipboardData)}`);
-          const data = await res.json();
-          return data.title;
+          return await res.json();
         } catch (e) {
-          return new URL(clipboardData.startsWith('http') ? clipboardData : 'https://example.com').hostname;
+          return { 
+            title: new URL(clipboardData.startsWith('http') ? clipboardData : 'https://example.com').hostname,
+            description: '',
+            image: ''
+          };
         }
       };
 
       const timer = setTimeout(async () => {
-        const title = await fetchTitle();
+        const meta = await fetchMetadata();
         setIsAnalyzing(false);
         
         const { category, tags: autoTags } = classifyLink(clipboardData);
         
         setPreviewData({
-          title: title || '새로운 링크',
-          description: clipboardData.substring(0, 50) + '...',
+          title: meta.title || '새로운 링크',
+          description: meta.description || clipboardData.substring(0, 50) + '...',
+          image: meta.image || '',
           domain: new URL(clipboardData.startsWith('http') ? clipboardData : 'https://example.com').hostname,
         });
 
@@ -59,11 +65,12 @@ export default function AddLinkModal() {
       url: clipboardData.startsWith('http') ? clipboardData : `https://${clipboardData}`,
       title: previewData.title || clipboardData,
       description: previewData.description,
-      image: '/mock-image-1.jpg',
+      image: previewData.image || '/mock-image-1.jpg',
       memo,
       tags,
       category: selectedCategory,
       domain: previewData.domain || '웹사이트',
+      relatedRepo: targetRepo
     });
   };
 

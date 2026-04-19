@@ -66,7 +66,8 @@ export default function RepoExplorerModal() {
       tags: ['Code', 'Snippet', selectedRepo.language || 'Software'],
       domain: 'github.com',
       memo: fileContent.substring(0, 500),
-      image: '/mock-image-1.jpg' // Add missing image property
+      image: '/mock-image-1.jpg',
+      relatedRepo: selectedRepo.name // Link to current repo
     });
     alert('소스 코드가 스니펫으로 저장되었습니다!');
   };
