@@ -1,12 +1,73 @@
 'use client';
 
-import React from 'react';
+import React, { useRef } from 'react';
 import { useAppContext } from '@/contexts/AppContext';
-import { Search, Hash, Plus, Settings, FolderOpen, Crown, Download, Command } from 'lucide-react';
+import { Search, Hash, Plus, Settings, FolderOpen, Download, Command, MessageSquare } from 'lucide-react';
 import Link from 'next/link';
 
 export default function Sidebar() {
-  const { categories, activeCategory, setActiveCategory, exportCSV, openAddModal } = useAppContext();
+  const { categories, activeCategory, setActiveCategory, exportCSV, openAddModal, addMultipleLinks } = useAppContext();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const text = await file.text();
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const matches = text.match(urlRegex) || [];
+    const uniqueUrls = Array.from(new Set(matches));
+
+    if (uniqueUrls.length === 0) {
+       alert("텍스트 파일 내에서 링크를 찾을 수 없습니다.");
+       if (e.target) e.target.value = '';
+       return;
+    }
+
+    const confirmMsg = `카카오톡 대화록에서 ${uniqueUrls.length}개의 고유 링크를 찾았습니다. Firebase에 모두 분류하여 저장하시겠습니까?`;
+    if (!confirm(confirmMsg)) {
+      if (e.target) e.target.value = '';
+      return;
+    }
+
+    const newLinks = uniqueUrls.map(url => {
+        let matchedCategory = '아이디어'; // fallback
+        const lowerData = url.toLowerCase();
+        
+        for (const cat of categories) {
+          if (lowerData.includes(cat.toLowerCase())) {
+            matchedCategory = cat;
+            break;
+          }
+        }
+        
+        let generatedTags = ['카톡추출'];
+        if (lowerData.includes('github') || lowerData.includes('code') || matchedCategory === '개발') {
+          generatedTags = ['개발', '코드', '카톡추출'];
+          if (!matchedCategory) matchedCategory = '개발';
+        } else if (lowerData.includes('youtube') || lowerData.includes('video')) {
+          generatedTags = ['영상', '참고', '카톡추출'];
+          matchedCategory = '나중에 볼 영상';
+        }
+        
+        let domain = '웹사이트';
+        try { domain = new URL(url).hostname; } catch(e){}
+
+        return {
+          url: url,
+          title: "카톡 추출 링크",
+          description: "카카오톡 내게쓰기에서 자동 임포트된 복구 링크입니다.",
+          image: '/mock-image-1.jpg',
+          memo: '카카오톡 자동 백업',
+          tags: generatedTags,
+          category: matchedCategory,
+          domain: domain
+        };
+    });
+
+    await addMultipleLinks(newLinks);
+    if (e.target) e.target.value = '';
+  };
 
   return (
     <aside style={{
@@ -82,6 +143,14 @@ export default function Sidebar() {
 
       {/* Footer Nav */}
       <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <input type="file" accept=".txt" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileUpload} />
+        <button 
+          onClick={() => fileInputRef.current?.click()}
+          style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 12px', color: 'var(--text-secondary)', fontSize: '14px' }}
+        >
+          <MessageSquare size={18} /> 카톡 파일 스캔
+        </button>
+
         <button 
           onClick={exportCSV}
           style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 12px', color: 'var(--text-secondary)', fontSize: '14px' }}

@@ -30,6 +30,7 @@ interface AppContextState {
   
   // Actions
   addLink: (link: Omit<StashedLink, 'id' | 'createdAt'>) => void;
+  addMultipleLinks: (links: Omit<StashedLink, 'id' | 'createdAt'>[]) => Promise<void>;
   removeLink: (id: string) => void;
   setActiveCategory: (cat: string | null) => void;
   setSearchQuery: (query: string) => void;
@@ -98,6 +99,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const addMultipleLinks = async (linksData: Omit<StashedLink, 'id' | 'createdAt'>[]) => {
+    if (!user) return;
+    try {
+      await Promise.all(linksData.map(link => 
+        addDoc(collection(db, `users/${user.uid}/links`), {
+          ...link,
+          createdAt: Date.now()
+        })
+      ));
+      alert(`성공! 총 ${linksData.length}개의 링크가 스스로 분류되어 저장되었습니다.`);
+    } catch (e) {
+      console.error(e);
+      alert('일괄 저장 실패: ' + (e as Error).message);
+    }
+  };
+
   const removeLink = async (id: string) => {
     if (!user) return;
     await deleteDoc(doc(db, `users/${user.uid}/links/${id}`));
@@ -155,7 +172,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     <AppContext.Provider value={{
       links, categories, activeCategory, searchQuery, isAddModalOpen, clipboardData,
       user, isAuthLoading,
-      addLink, removeLink, setActiveCategory, setSearchQuery, openAddModal, closeAddModal,
+      addLink, addMultipleLinks, removeLink, setActiveCategory, setSearchQuery, openAddModal, closeAddModal,
       exportCSV, logoutApp
     }}>
       {children}
