@@ -64,19 +64,7 @@ export default function Home() {
         <Header />
         
         <main style={{ padding: '32px', flex: 1, overflowY: 'auto' }}>
-          {/* Update Banner */}
-          <div style={{ 
-            backgroundColor: 'var(--bg-elevated)', borderRadius: '12px', padding: '16px 24px', 
-            marginBottom: '32px', borderLeft: '4px solid var(--accent-cyan)'
-          }}>
-            <h4 style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>
-              4월 18일 [사용성 개선 업데이트]
-            </h4>
-            <ul style={{ color: 'var(--text-secondary)', fontSize: '14px', listStyleType: 'disc', paddingLeft: '20px' }}>
-              <li>상단 카테고리 칩을 드래그해서 순서 변경을 할 수 있어요.</li>
-              <li>이제 모든 링크를 한번에 선택할 수 있어요.</li>
-            </ul>
-          </div>
+
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
             <h1 style={{ fontSize: '24px', fontWeight: 700 }}>
