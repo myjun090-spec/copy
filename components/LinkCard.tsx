@@ -1,7 +1,7 @@
 'use client';
 
 import { StashedLink, useAppContext } from '@/contexts/AppContext';
-import { MoreHorizontal, Code, Check, Trash2 } from 'lucide-react';
+import { Code, Check, Trash2 } from 'lucide-react';
 
 export default function LinkCard({ link }: { link: StashedLink }) {
   const { isSelectionMode, selectedIds, toggleSelection, setActiveTag, removeLink } = useAppContext();

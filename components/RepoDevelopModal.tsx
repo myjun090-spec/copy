@@ -24,6 +24,7 @@ export default function RepoDevelopModal() {
   useEffect(() => {
     if (!isRepoDevelopOpen || !developRepo || !githubToken) return;
     let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsLoading(true);
     setIdeas([]);
     (async () => {

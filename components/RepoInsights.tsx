@@ -35,11 +35,9 @@ export default function RepoInsights() {
   const [copiedId, setCopiedId] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!githubToken || githubRepos.length === 0) {
-      setInsights([]);
-      return;
-    }
+    if (!githubToken || githubRepos.length === 0) return;
     let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
 
     (async () => {

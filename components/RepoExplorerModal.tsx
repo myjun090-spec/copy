@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAppContext } from '@/contexts/AppContext';
-import { X, Folder, File, ChevronLeft, Search, Plus, Code } from 'lucide-react';
+import { X, Folder, File, ChevronLeft, Plus, Code } from 'lucide-react';
 import { fetchRepoContents, fetchFileRaw, GithubContent } from '@/lib/github';
 
 export default function RepoExplorerModal() {
@@ -13,18 +13,7 @@ export default function RepoExplorerModal() {
   const [selectedFile, setSelectedFile] = useState<GithubContent | null>(null);
   const [fileContent, setFileContent] = useState('');
 
-  useEffect(() => {
-    if (isRepoExplorerOpen && selectedRepo && githubToken) {
-      loadPath('');
-    } else {
-      setContents([]);
-      setCurrentPath('');
-      setSelectedFile(null);
-      setFileContent('');
-    }
-  }, [isRepoExplorerOpen, selectedRepo, githubToken]);
-
-  const loadPath = async (path: string) => {
+  const loadPath = useCallback(async (path: string) => {
     if (!selectedRepo || !githubToken) return;
     setIsLoading(true);
     const data = await fetchRepoContents(githubToken, selectedRepo.owner!.login, selectedRepo.name, path);
@@ -33,7 +22,19 @@ export default function RepoExplorerModal() {
     setSelectedFile(null);
     setFileContent('');
     setIsLoading(false);
-  };
+  }, [selectedRepo, githubToken]);
+
+  useEffect(() => {
+    if (isRepoExplorerOpen && selectedRepo && githubToken) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      loadPath('');
+    } else {
+      setContents([]);
+      setCurrentPath('');
+      setSelectedFile(null);
+      setFileContent('');
+    }
+  }, [isRepoExplorerOpen, selectedRepo, githubToken, loadPath]);
 
   const handleFileClick = async (item: GithubContent) => {
     if (item.type === 'dir') {

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Search, Bell, Settings } from 'lucide-react';
+import { Search, Bell } from 'lucide-react';
 import { useAppContext } from '@/contexts/AppContext';
 
 export default function Header() {

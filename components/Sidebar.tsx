@@ -100,7 +100,7 @@ export default function Sidebar() {
         }}>
           박
         </div>
-        <span style={{ fontWeight: 600, fontSize: '15px' }}>박민준's Space</span>
+        <span style={{ fontWeight: 600, fontSize: '15px' }}>박민준&apos;s Space</span>
       </div>
 
       {/* Main Nav */}

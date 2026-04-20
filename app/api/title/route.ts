@@ -47,7 +47,7 @@ export async function GET(request: Request) {
       description: description || 'No description available',
       image: image || '/mock-image-1.jpg'
     });
-  } catch (err) {
+  } catch {
     const domain = new URL(url.startsWith('http') ? url : `https://${url}`).hostname;
     return NextResponse.json({ 
       title: domain,

@@ -6,7 +6,7 @@ import { X, Search, FileText, Plus, Sparkles, Image as ImageIcon } from 'lucide-
 import { classifyLink, buildAutoDescription, buildAutoTitle } from '@/lib/classifier';
 
 export default function AddLinkModal() {
-  const { isAddModalOpen, closeAddModal, clipboardData, addLink, categories } = useAppContext();
+  const { isAddModalOpen, closeAddModal, clipboardData, addLink } = useAppContext();
   
   const [memo, setMemo] = useState('');
   const [tags, setTags] = useState<string[]>([]);
@@ -18,7 +18,7 @@ export default function AddLinkModal() {
     domain: '',
     image: '',
   });
-  const [targetRepo, setTargetRepo] = useState<string | null>(null);
+  const [targetRepo] = useState<string | null>(null);
 
   useEffect(() => {
     if (isAddModalOpen && clipboardData) {
@@ -27,8 +27,8 @@ export default function AddLinkModal() {
         try {
           const res = await fetch(`/api/title?url=${encodeURIComponent(clipboardData)}`);
           return await res.json();
-        } catch (e) {
-          return { 
+        } catch {
+          return {
             title: new URL(clipboardData.startsWith('http') ? clipboardData : 'https://example.com').hostname,
             description: '',
             image: ''

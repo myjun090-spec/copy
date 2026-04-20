@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { auth, db } from '@/lib/firebase';
-import { onAuthStateChanged, User, getRedirectResult, GithubAuthProvider } from 'firebase/auth';
+import { onAuthStateChanged, User } from 'firebase/auth';
 import { collection, query, onSnapshot, addDoc, deleteDoc, doc, orderBy, updateDoc } from 'firebase/firestore';
 import { fetchUserRepos, GithubRepo } from '@/lib/github';
 import {
@@ -93,7 +93,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [githubRepos, setGithubRepos] = useState<GithubRepo[]>([]);
-  const [githubToken, setGithubToken] = useState<string | null>(typeof window !== 'undefined' ? localStorage.getItem('gh_token') : null);
+  const [githubToken] = useState<string | null>(typeof window !== 'undefined' ? localStorage.getItem('gh_token') : null);
   
   const [isRoadmapModalOpen, setIsRoadmapModalOpen] = useState(false);
   const [isRepoExplorerOpen, setIsRepoExplorerOpen] = useState(false);
@@ -132,10 +132,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setToast(null);
   };
 
-  // Detect leftover localStorage data when user is in cloud mode
+  // Detect leftover localStorage data when user is in cloud mode.
+  // setState-in-effect is intentional: we're reading a non-React data source
+  // (window.localStorage) when auth/storage state flips.
   useEffect(() => {
     if (storageMode === 'cloud' && user) {
       try {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setPendingLocalCount(loadLocalLinks().length);
       } catch {
         setPendingLocalCount(0);
@@ -145,9 +148,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [storageMode, user]);
 
-  // 1. Auth Listener — skip entirely in local mode
+  // 1. Auth Listener — skip entirely in local mode.
+  // setState-in-effect is intentional: storageMode is the external signal.
   useEffect(() => {
     if (storageMode === 'local') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setUser(null);
       setIsAuthLoading(false);
       return;
@@ -170,12 +175,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     });
     return () => unsubAuth();
-  }, [storageMode]);
+  }, [storageMode, githubToken]);
 
-  // 2. Links Source — cloud (Firestore) OR local (localStorage)
+  // 2. Links Source — cloud (Firestore) OR local (localStorage).
+  // setState-in-effect is intentional: loadLocalLinks reads an external data
+  // source on mount / mode switch.
   useEffect(() => {
     if (storageMode === 'local') {
       const data = loadLocalLinks();
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLinks(data);
       const cats = Array.from(new Set(data.map(l => l.category)));
       setCategories(Array.from(new Set(['개발', '디자인', '나중에 볼 영상', '아이디어', ...cats])));
@@ -338,9 +346,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const skipped = local.length - toUpload.length;
 
     try {
-      await Promise.all(toUpload.map(({ id, ...rest }) =>
-        addDoc(collection(db, `users/${user.uid}/links`), rest)
-      ));
+      await Promise.all(toUpload.map((l) => {
+        const { id: _id, ...rest } = l;
+        void _id;
+        return addDoc(collection(db, `users/${user.uid}/links`), rest);
+      }));
       clearLocalLinks();
       setPendingLocalCount(0);
       showToast('success',
@@ -420,7 +430,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       try {
         const clipText = await navigator.clipboard.readText();
         setClipboardData(clipText);
-      } catch (err) {
+      } catch {
         setClipboardData('');
       }
     }

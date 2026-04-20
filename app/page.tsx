@@ -21,8 +21,7 @@ interface TimeGroup {
   items: StashedLink[];
 }
 
-function groupByTime(links: StashedLink[]): TimeGroup[] {
-  const now = Date.now();
+function groupByTime(links: StashedLink[], now: number): TimeGroup[] {
   const today: StashedLink[] = [];
   const week: StashedLink[] = [];
   const earlier: StashedLink[] = [];
@@ -107,11 +106,13 @@ export default function Home() {
     });
   }, [links, activeCategory, activeTag, searchQuery]);
 
-  const groups = useMemo(() => groupByTime(filteredLinks), [filteredLinks]);
+  // Snapshot the clock once per mount so downstream derivations stay pure.
+  const [now] = useState<number>(() => Date.now());
+
+  const groups = useMemo(() => groupByTime(filteredLinks, now), [filteredLinks, now]);
   const tagCloud = useMemo(() => topTags(links), [links]);
 
   const forgottenLinks = useMemo(() => {
-    const now = Date.now();
     const THIRTY_DAYS = 30 * MS_DAY;
     return links
       .filter(l => {
@@ -122,7 +123,7 @@ export default function Home() {
       })
       .sort((a, b) => (a.lastOpenedAt ?? 0) - (b.lastOpenedAt ?? 0))
       .slice(0, 6);
-  }, [links]);
+  }, [links, now]);
 
   const toggleSelection = () => {
     if (isSelectionMode) {
@@ -252,7 +253,7 @@ export default function Home() {
             </div>
             <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 6 }}>
               {forgottenLinks.map(link => {
-                const days = Math.floor((Date.now() - link.createdAt) / MS_DAY);
+                const days = Math.floor((now - link.createdAt) / MS_DAY);
                 return (
                   <a
                     key={link.id}
