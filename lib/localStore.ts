@@ -66,3 +66,12 @@ export function removeLocalLinks(ids: string[]): void {
   const set = new Set(ids);
   persistLocalLinks(loadLocalLinks().filter(l => !set.has(l.id)));
 }
+
+export function updateLocalLink(id: string, patch: Partial<StashedLink>): void {
+  persistLocalLinks(loadLocalLinks().map(l => l.id === id ? { ...l, ...patch } : l));
+}
+
+export function clearLocalLinks(): void {
+  if (typeof window === 'undefined') return;
+  window.localStorage.removeItem(LINKS_KEY);
+}

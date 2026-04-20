@@ -11,7 +11,7 @@ import RepoInsights from '@/components/RepoInsights';
 import LinkCard from '@/components/LinkCard';
 import Toast from '@/components/Toast';
 import { useAppContext, StashedLink } from '@/contexts/AppContext';
-import { Plus, X, Trash2, Tag as TagIcon, Clock, AlertTriangle } from 'lucide-react';
+import { Plus, X, Trash2, Tag as TagIcon, Clock, AlertTriangle, Sparkles, History } from 'lucide-react';
 
 const MS_DAY = 24 * 60 * 60 * 1000;
 
@@ -56,6 +56,7 @@ export default function Home() {
     activeTag, setActiveTag,
     isSelectionMode, setSelectionMode, selectedIds, clearSelection, removeManyLinks,
     user, logoutApp, storageMode, switchToCloudMode,
+    pendingLocalCount, migrateLocalToCloud, touchLink,
   } = useAppContext();
 
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -109,6 +110,20 @@ export default function Home() {
   const groups = useMemo(() => groupByTime(filteredLinks), [filteredLinks]);
   const tagCloud = useMemo(() => topTags(links), [links]);
 
+  const forgottenLinks = useMemo(() => {
+    const now = Date.now();
+    const THIRTY_DAYS = 30 * MS_DAY;
+    return links
+      .filter(l => {
+        const age = now - l.createdAt;
+        if (age < 14 * MS_DAY) return false;
+        if (l.lastOpenedAt && now - l.lastOpenedAt < THIRTY_DAYS) return false;
+        return true;
+      })
+      .sort((a, b) => (a.lastOpenedAt ?? 0) - (b.lastOpenedAt ?? 0))
+      .slice(0, 6);
+  }, [links]);
+
   const toggleSelection = () => {
     if (isSelectionMode) {
       clearSelection();
@@ -146,6 +161,27 @@ export default function Home() {
                   style={{ padding: '7px 12px', borderRadius: 8, background: '#0369a1', color: '#fff', fontSize: 12, fontWeight: 600 }}
                 >
                   계정으로 로그인하기
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {storageMode === 'cloud' && user && !user.isAnonymous && pendingLocalCount > 0 && (
+          <div style={{
+            marginBottom: 20, padding: '14px 18px', borderRadius: 14,
+            background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.45)',
+            display: 'flex', alignItems: 'flex-start', gap: 12,
+          }}>
+            <Sparkles size={18} color="#047857" style={{ flexShrink: 0, marginTop: 2 }} />
+            <div style={{ flex: 1, fontSize: 13, color: '#064e3b', lineHeight: 1.6 }}>
+              <b>로컬에 저장된 {pendingLocalCount}개 링크</b>가 남아 있어요. 지금 계정으로 옮기면 다른 기기에서도 보입니다.
+              <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
+                <button
+                  onClick={migrateLocalToCloud}
+                  style={{ padding: '7px 14px', borderRadius: 8, background: '#047857', color: '#fff', fontSize: 12, fontWeight: 600 }}
+                >
+                  내 계정으로 옮기기
                 </button>
               </div>
             </div>
@@ -207,6 +243,43 @@ export default function Home() {
 
         {/* Per-repo recommendation cards */}
         <RepoInsights />
+
+        {/* Forgotten — links stashed a while back and never opened */}
+        {forgottenLinks.length > 0 && (
+          <section style={{ marginBottom: 28 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              <History size={13} /> 한동안 안 꺼내본 링크
+            </div>
+            <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 6 }}>
+              {forgottenLinks.map(link => {
+                const days = Math.floor((Date.now() - link.createdAt) / MS_DAY);
+                return (
+                  <a
+                    key={link.id}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => touchLink(link.id)}
+                    style={{
+                      flex: '0 0 260px',
+                      padding: 14, borderRadius: 14,
+                      background: 'var(--bg-secondary)', border: '1px solid var(--border-color)',
+                      display: 'flex', flexDirection: 'column', gap: 6,
+                    }}
+                  >
+                    <div style={{ fontSize: 11, color: 'var(--text-tertiary)', display: 'flex', justifyContent: 'space-between' }}>
+                      <span>{link.domain}</span>
+                      <span>{days}일 전</span>
+                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                      {link.title}
+                    </div>
+                  </a>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
         {/* Category pills */}
         <section style={{ marginBottom: 20 }}>
@@ -285,7 +358,10 @@ export default function Home() {
                   <a
                     key={link.id}
                     href={isSelectionMode ? undefined : link.url}
-                    onClick={(e) => { if (isSelectionMode) e.preventDefault(); }}
+                    onClick={(e) => {
+                      if (isSelectionMode) { e.preventDefault(); return; }
+                      touchLink(link.id);
+                    }}
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{ display: 'inline-block', width: '100%', marginBottom: 18, breakInside: 'avoid' }}

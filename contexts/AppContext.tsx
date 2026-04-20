@@ -3,13 +3,16 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, User, getRedirectResult, GithubAuthProvider } from 'firebase/auth';
-import { collection, query, onSnapshot, addDoc, deleteDoc, doc, orderBy } from 'firebase/firestore';
+import { collection, query, onSnapshot, addDoc, deleteDoc, doc, orderBy, updateDoc } from 'firebase/firestore';
 import { fetchUserRepos, GithubRepo } from '@/lib/github';
 import {
   getStorageMode, setStorageMode as persistStorageMode,
   loadLocalLinks, addLocalLink, addLocalLinks, removeLocalLink, removeLocalLinks,
+  updateLocalLink, clearLocalLinks,
   StorageMode,
 } from '@/lib/localStore';
+import { normalizeUrl } from '@/lib/urlUtils';
+import { inferRelatedRepo } from '@/lib/autoLinkRepo';
 
 export type StashedLink = {
   id: string;
@@ -23,6 +26,7 @@ export type StashedLink = {
   domain: string;
   relatedRepo: string | null;
   createdAt: number;
+  lastOpenedAt?: number;
 };
 
 interface AppContextState {
@@ -49,12 +53,15 @@ interface AppContextState {
   storageMode: StorageMode;
   enableLocalMode: () => void;
   switchToCloudMode: () => void;
+  pendingLocalCount: number;
+  migrateLocalToCloud: () => Promise<void>;
 
   // Actions
   addLink: (link: Omit<StashedLink, 'id' | 'createdAt'>) => void;
   addMultipleLinks: (links: Omit<StashedLink, 'id' | 'createdAt'>[]) => Promise<void>;
   removeLink: (id: string) => void;
   removeManyLinks: (ids: string[]) => Promise<void>;
+  touchLink: (id: string) => void;
   setActiveCategory: (cat: string | null) => void;
   setSearchQuery: (query: string) => void;
   setActiveTag: (tag: string | null) => void;
@@ -99,6 +106,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [toast, setToast] = useState<{ kind: 'success' | 'error' | 'info'; message: string } | null>(null);
   const toastTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const [storageMode, setStorageMode] = useState<StorageMode>(() => (typeof window !== 'undefined' ? getStorageMode() : 'cloud'));
+  const [pendingLocalCount, setPendingLocalCount] = useState(0);
 
   const enableLocalMode = () => {
     persistStorageMode('local');
@@ -123,6 +131,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setToast(null);
   };
+
+  // Detect leftover localStorage data when user is in cloud mode
+  useEffect(() => {
+    if (storageMode === 'cloud' && user) {
+      try {
+        setPendingLocalCount(loadLocalLinks().length);
+      } catch {
+        setPendingLocalCount(0);
+      }
+    } else {
+      setPendingLocalCount(0);
+    }
+  }, [storageMode, user]);
 
   // 1. Auth Listener — skip entirely in local mode
   useEffect(() => {
@@ -178,13 +199,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return () => unsubDB();
   }, [user, storageMode]);
 
+  const enrichWithRepo = (data: Omit<StashedLink, 'id' | 'createdAt'>): Omit<StashedLink, 'id' | 'createdAt'> => {
+    if (data.relatedRepo) return data;
+    const inferred = inferRelatedRepo(data, githubRepos.map(r => r.name));
+    return inferred ? { ...data, relatedRepo: inferred } : data;
+  };
+
+  const findExistingByUrl = (url: string): StashedLink | null => {
+    const target = normalizeUrl(url);
+    if (!target) return null;
+    return links.find(l => normalizeUrl(l.url) === target) ?? null;
+  };
+
   const addLink = async (linkData: Omit<StashedLink, 'id' | 'createdAt'>) => {
+    const dup = findExistingByUrl(linkData.url);
+    if (dup) {
+      setIsAddModalOpen(false);
+      showToast('info', `이미 저장된 링크예요 — "${dup.title.slice(0, 40)}"`);
+      return;
+    }
+    const enriched = enrichWithRepo(linkData);
+    const autoMsg = enriched.relatedRepo && !linkData.relatedRepo
+      ? ` · 🔗 ${enriched.relatedRepo} 연결`
+      : '';
+
     if (storageMode === 'local') {
       try {
-        const created = addLocalLink(linkData);
+        const created = addLocalLink(enriched);
         setLinks(prev => [created, ...prev]);
         setIsAddModalOpen(false);
-        showToast('success', `저장됨 — "${linkData.title.slice(0, 40)}"`);
+        showToast('success', `저장됨 — "${linkData.title.slice(0, 32)}"${autoMsg}`);
       } catch (e) {
         console.error('[addLink/local] failed', e);
         showToast('error', `저장 실패: ${(e as Error).message}`);
@@ -197,11 +241,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     try {
       await addDoc(collection(db, `users/${user.uid}/links`), {
-        ...linkData,
+        ...enriched,
         createdAt: Date.now()
       });
       setIsAddModalOpen(false);
-      showToast('success', `저장됨 — "${linkData.title.slice(0, 40)}"`);
+      showToast('success', `저장됨 — "${linkData.title.slice(0, 32)}"${autoMsg}`);
     } catch (e) {
       console.error('[addLink] failed', e);
       showToast('error', `저장 실패: ${(e as Error).message}`);
@@ -209,11 +253,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addMultipleLinks = async (linksData: Omit<StashedLink, 'id' | 'createdAt'>[]) => {
+    const existingNorm = new Set(links.map(l => normalizeUrl(l.url)));
+    const seenInBatch = new Set<string>();
+    const deduped: Omit<StashedLink, 'id' | 'createdAt'>[] = [];
+    for (const raw of linksData) {
+      const n = normalizeUrl(raw.url);
+      if (!n || existingNorm.has(n) || seenInBatch.has(n)) continue;
+      seenInBatch.add(n);
+      deduped.push(enrichWithRepo(raw));
+    }
+    const skipped = linksData.length - deduped.length;
+
+    if (deduped.length === 0) {
+      showToast('info', `전부 이미 저장되어 있어요 (${skipped}개 스킵)`);
+      return;
+    }
+
+    const autoLinkedCount = deduped.filter(d => d.relatedRepo).length;
+    const summary = `${deduped.length}개 저장`
+      + (skipped > 0 ? ` · ${skipped}개 중복 스킵` : '')
+      + (autoLinkedCount > 0 ? ` · 🔗 ${autoLinkedCount}개 레포 자동 연결` : '');
+
     if (storageMode === 'local') {
       try {
-        const created = addLocalLinks(linksData);
+        const created = addLocalLinks(deduped);
         setLinks(prev => [...created, ...prev]);
-        showToast('success', `${linksData.length}개 링크 저장 완료 (이 기기)`);
+        showToast('success', summary);
       } catch (e) {
         console.error('[addMultipleLinks/local] failed', e);
         showToast('error', `일괄 저장 실패: ${(e as Error).message}`);
@@ -225,16 +290,64 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     try {
-      await Promise.all(linksData.map(link =>
+      await Promise.all(deduped.map(link =>
         addDoc(collection(db, `users/${user.uid}/links`), {
           ...link,
           createdAt: Date.now()
         })
       ));
-      showToast('success', `${linksData.length}개 링크 저장 완료`);
+      showToast('success', summary);
     } catch (e) {
       console.error('[addMultipleLinks] failed', e);
       showToast('error', `일괄 저장 실패: ${(e as Error).message}`);
+    }
+  };
+
+  const touchLink = async (id: string) => {
+    const ts = Date.now();
+    if (storageMode === 'local') {
+      updateLocalLink(id, { lastOpenedAt: ts });
+      setLinks(prev => prev.map(l => l.id === id ? { ...l, lastOpenedAt: ts } : l));
+      return;
+    }
+    if (!user) return;
+    try {
+      await updateDoc(doc(db, `users/${user.uid}/links/${id}`), { lastOpenedAt: ts });
+    } catch (e) {
+      // Silent — open-tracking is best-effort
+      console.debug('[touchLink] failed', e);
+    }
+  };
+
+  const migrateLocalToCloud = async () => {
+    if (storageMode !== 'cloud') {
+      showToast('error', '계정 로그인 상태에서 이관할 수 있어요.');
+      return;
+    }
+    if (!user) {
+      showToast('error', '먼저 Google/GitHub 계정으로 로그인해주세요.');
+      return;
+    }
+    const local = loadLocalLinks();
+    if (local.length === 0) {
+      setPendingLocalCount(0);
+      return;
+    }
+    const existingNorm = new Set(links.map(l => normalizeUrl(l.url)));
+    const toUpload = local.filter(l => !existingNorm.has(normalizeUrl(l.url)));
+    const skipped = local.length - toUpload.length;
+
+    try {
+      await Promise.all(toUpload.map(({ id, ...rest }) =>
+        addDoc(collection(db, `users/${user.uid}/links`), rest)
+      ));
+      clearLocalLinks();
+      setPendingLocalCount(0);
+      showToast('success',
+        `${toUpload.length}개 이관 완료${skipped > 0 ? ` · ${skipped}개 이미 있음` : ''}`);
+    } catch (e) {
+      console.error('[migrateLocalToCloud] failed', e);
+      showToast('error', `이관 실패: ${(e as Error).message}`);
     }
   };
 
@@ -385,7 +498,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       isRepoDevelopOpen, developRepo, activeTag, selectedIds, isSelectionMode,
       toast, dismissToast,
       storageMode, enableLocalMode, switchToCloudMode,
-      addLink, addMultipleLinks, removeLink, removeManyLinks,
+      pendingLocalCount, migrateLocalToCloud,
+      addLink, addMultipleLinks, removeLink, removeManyLinks, touchLink,
       setActiveCategory, setSearchQuery, setActiveTag,
       openAddModal, closeAddModal,
       openRoadmap, closeRoadmap, openRepoExplorer, closeRepoExplorer,
